@@ -49,6 +49,7 @@ function loadInitialRoll(): StoredRollState {
 export default function App() {
   const [rollState, setRollState] = useState<StoredRollState>(() => loadInitialRoll());
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [galleryRefreshSignal, setGalleryRefreshSignal] = useState(0);
@@ -114,67 +115,76 @@ export default function App() {
     if (pending.length === 0) return;
 
     setIsUploading(true);
+    setUploadProgress({ current: 0, total: pending.length });
     setUploadError(null);
     setUploadSuccessMessage(null);
 
+    let successCount = 0;
+
     try {
-      const formData = new FormData();
-      formData.append('guestName', rollState.guestName.trim() || 'Tamu Pernikahan');
-      formData.append('wish', rollState.wish.trim());
-      formData.append('rollId', rollState.rollId);
+      for (let i = 0; i < pending.length; i++) {
+        const shot = pending[i];
+        setUploadProgress({ current: i + 1, total: pending.length });
 
-      const frameMeta = pending.map((shot) => ({
-        frameNumber: shot.frameNumber,
-        filter: shot.filter,
-        capturedAt: shot.capturedAt,
-      }));
-      formData.append('frames', JSON.stringify(frameMeta));
+        const formData = new FormData();
+        formData.append('guestName', rollState.guestName.trim() || 'Tamu Pernikahan');
+        formData.append('wish', rollState.wish.trim());
+        formData.append('rollId', rollState.rollId);
+        formData.append(
+          'frames',
+          JSON.stringify([
+            {
+              frameNumber: shot.frameNumber,
+              filter: shot.filter,
+              capturedAt: shot.capturedAt,
+            },
+          ])
+        );
 
-      pending.forEach((shot) => {
         const blob = dataUrlToBlob(shot.dataUrl);
         formData.append('photos', blob, `frame-${String(shot.frameNumber).padStart(2, '0')}.jpg`);
-      });
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Gagal mengunggah foto ke Neo S3.');
-      }
-
-      const uploadedMap = new Map<number, string>();
-      if (Array.isArray(result.photos)) {
-        result.photos.forEach((item: { frameNumber: number; key: string }) => {
-          uploadedMap.set(item.frameNumber, item.key);
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
         });
-      }
 
-      setRollState((prev) => ({
-        ...prev,
-        shots: prev.shots.map((shot) =>
-          shot.status === 'pending'
-            ? {
-                ...shot,
-                status: 'uploaded',
-                s3Key: uploadedMap.get(shot.frameNumber) || shot.s3Key,
-              }
-            : shot
-        ),
-      }));
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal mengunggah foto ke Neo S3.');
+        }
+
+        const uploadedKey = result.photos?.[0]?.key as string | undefined;
+        successCount += 1;
+
+        setRollState((prev) => ({
+          ...prev,
+          shots: prev.shots.map((item) =>
+            item.id === shot.id
+              ? {
+                  ...item,
+                  status: 'uploaded',
+                  s3Key: uploadedKey || item.s3Key,
+                }
+              : item
+          ),
+        }));
+      }
 
       setUploadSuccessMessage(
-        `${pending.length} foto berhasil diunggah ke galeri pernikahan Farid & Bella.`
+        `${successCount} foto berhasil diunggah ke galeri pernikahan Farid & Bella.`
       );
       setGalleryRefreshSignal((n) => n + 1);
     } catch (err) {
+      if (successCount > 0) {
+        setGalleryRefreshSignal((n) => n + 1);
+      }
       setUploadError(
         err instanceof Error ? err.message : 'Terjadi kesalahan saat mengunggah ke Neo S3.'
       );
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   }, [rollState]);
 
@@ -396,6 +406,7 @@ export default function App() {
           onResetRoll={handleResetRoll}
           onGoToCamera={() => scrollToSection('camera')}
           isUploading={isUploading}
+          uploadProgress={uploadProgress}
           uploadError={uploadError}
           uploadSuccessMessage={uploadSuccessMessage}
         />

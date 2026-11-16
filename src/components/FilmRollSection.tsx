@@ -14,6 +14,7 @@ interface FilmRollSectionProps {
   onResetRoll: () => void;
   onGoToCamera: () => void;
   isUploading: boolean;
+  uploadProgress: { current: number; total: number } | null;
   uploadError: string | null;
   uploadSuccessMessage: string | null;
 }
@@ -30,6 +31,7 @@ export function FilmRollSection({
   onResetRoll,
   onGoToCamera,
   isUploading,
+  uploadProgress,
   uploadError,
   uploadSuccessMessage,
 }: FilmRollSectionProps) {
@@ -213,7 +215,11 @@ export function FilmRollSection({
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mengunggah ke S3...</span>
+                    <span className="font-film-mono tabular-nums">
+                      {uploadProgress
+                        ? `Mengunggah ${uploadProgress.current}/${uploadProgress.total}...`
+                        : 'Mengunggah ke S3...'}
+                    </span>
                   </>
                 ) : (
                   <>
