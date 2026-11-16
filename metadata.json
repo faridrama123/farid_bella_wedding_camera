@@ -1,0 +1,6 @@
+{
+  "name": "Farid & Bella — Wedding Disposable Camera",
+  "description": "Kamera sekali pakai digital untuk pernikahan Farid & Bella. Ambil hingga 10 foto kenangan dan unggah langsung ke galeri pernikahan.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
