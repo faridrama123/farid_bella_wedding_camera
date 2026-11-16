@@ -28,7 +28,13 @@ export function WeddingGallery({ refreshSignal, onJumpToCamera }: WeddingGallery
     setError(null);
     try {
       const response = await fetch('/api/photos');
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: { error?: string; photos?: S3WeddingPhoto[] } = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Server error (${response.status}): ${rawText.slice(0, 120)}`);
+      }
       if (!response.ok) {
         throw new Error(data.error || 'Gagal memuat galeri pernikahan.');
       }

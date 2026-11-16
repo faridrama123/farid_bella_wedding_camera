@@ -149,7 +149,13 @@ export default function App() {
           body: formData,
         });
 
-        const result = await response.json();
+        const rawText = await response.text();
+        let result: { error?: string; photos?: Array<{ key: string }> } = {};
+        try {
+          result = JSON.parse(rawText);
+        } catch {
+          throw new Error(`Upload error (${response.status}): ${rawText.slice(0, 120)}`);
+        }
         if (!response.ok) {
           throw new Error(result.error || 'Gagal mengunggah foto ke Neo S3.');
         }
